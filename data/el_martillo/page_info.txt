@@ -1,0 +1,14 @@
+Información de la página del periódico El Martillo
+================================================
+
+NOTA: Coloca la imagen escaneada de la página del periódico en:
+data/el_martillo/page_01.png
+
+Datos extraídos:
+- Periódico: EL MARTILLO
+- Número de edición: 1609
+- Fecha de publicación: 5 de agosto de 1916
+- Ciudad: Chiclayo (aparece como "Chiclavo" en el texto)
+- Dirección de administración: Calle Verónica 18
+- Fecha de fundación del periódico: 8 de febrero de 1903
+- Precio: 4 centavos por número

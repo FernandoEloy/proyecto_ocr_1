@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# API Keys (IMPORTANTE: No subir API keys)
+*.key
+secrets.txt
+config_local.py
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Imágenes grandes (opcional, si son muy grandes)
+# data/el_martillo/*.png
+# data/el_martillo/*.jpg
+
+# Archivos temporales
+temp/
+tmp/
+*.tmp
+
+# Sistema operativo
+Thumbs.db
+.DS_Store

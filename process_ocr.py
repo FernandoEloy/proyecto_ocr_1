@@ -24,6 +24,7 @@ plt.rcParams['font.size'] = 10
 # Rutas de archivos
 IMAGE_PATH = "data/el_martillo/page_01.png"
 TEXT_OUTPUT_PATH = "data/el_martillo/texto_completo_extraido.txt"
+JSON_OUTPUT_PATH = "data/el_martillo/el_martillo_1609_structured.json"
 CSV_OUTPUT_PATH = "data/el_martillo/el_martillo_1609_structured.csv"
 VIZ_DIR = "data/el_martillo/"
 
@@ -170,93 +171,229 @@ Precio: 4 centavos por número
     return extracted_text
 
 
+def generate_basic_structure(text_content):
+    """
+    Genera una estructura básica del texto usando análisis de patrones simples
+    (fallback cuando no hay API key de Claude)
+
+    Args:
+        text_content: Texto completo extraído
+
+    Returns:
+        dict: Estructura JSON básica
+    """
+    import re
+
+    # Extraer información básica del encabezado
+    lines = text_content.strip().split('\n')
+
+    # Buscar metadata básica
+    newspaper_name = "El Martillo"
+    date = "1916-08-05"
+    issue_number = 1609
+    location = "Chiclayo, Perú"
+
+    for line in lines[:10]:
+        if "Edición" in line and "No." in line:
+            match = re.search(r'No\.\s*(\d+)', line)
+            if match:
+                issue_number = int(match.group(1))
+        if re.search(r'\d{1,2}\s+de\s+\w+\s+de\s+\d{4}', line):
+            # Intentar extraer fecha
+            pass
+
+    # Dividir contenido en secciones basándose en separadores y patrones
+    content_items = []
+
+    # Buscar títulos (líneas en mayúsculas o con formato específico)
+    sections = re.split(r'={10,}|^[A-ZÁÉÍÓÚÑ\s]{10,}$', text_content, flags=re.MULTILINE)
+
+    for i, section in enumerate(sections):
+        section = section.strip()
+        if len(section) < 20:
+            continue
+
+        # Extraer título (primera línea significativa)
+        section_lines = [l for l in section.split('\n') if l.strip()]
+        if not section_lines:
+            continue
+
+        headline = section_lines[0].strip()[:100]
+
+        # Detectar si es anuncio
+        is_ad = any(keyword in section.upper() for keyword in ['VENDEDOR', 'COBRADOR', 'MÁQUINA', 'SINGER', 'RÓMULO'])
+
+        # Buscar autor
+        author = ""
+        author_match = re.search(r'Por\s+([A-Z][a-zA-Z\.\s]+)', section)
+        if author_match:
+            author = author_match.group(1).strip()
+
+        content_items.append({
+            "headline": headline,
+            "section": "Anuncios" if is_ad else "Artículo principal",
+            "type": "anuncio" if is_ad else "artículo",
+            "author": author,
+            "text_excerpt": section[:300].strip()
+        })
+
+    # Si no se encontraron secciones, crear una sola entrada
+    if not content_items:
+        content_items.append({
+            "headline": "Contenido completo",
+            "section": "Artículo principal",
+            "type": "artículo",
+            "author": "",
+            "text_excerpt": text_content[:500].strip()
+        })
+
+    return {
+        "metadata": {
+            "newspaper_name": newspaper_name,
+            "date": date,
+            "issue_number": issue_number,
+            "location": location
+        },
+        "content": content_items
+    }
+
+
+def structure_text_with_claude(text_content):
+    """
+    Usa Claude para analizar el texto extraído y generar un JSON estructurado automáticamente
+
+    Args:
+        text_content: Texto completo extraído del OCR
+
+    Returns:
+        dict: Estructura JSON con los datos organizados
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    if not api_key:
+        print("\n⚠️  ANTHROPIC_API_KEY no configurada")
+        print("💡 Para usar análisis automático con IA, configura tu API key:")
+        print("   export ANTHROPIC_API_KEY='tu-api-key-aqui'")
+        print("\n📝 Generando estructura de ejemplo automáticamente desde el texto...")
+
+        # Generar estructura básica analizando el texto
+        return generate_basic_structure(text_content)
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""Analiza el siguiente texto extraído de un periódico histórico y estructura la información en formato JSON.
+
+El JSON debe tener esta estructura:
+{{
+  "metadata": {{
+    "newspaper_name": "nombre del periódico",
+    "date": "YYYY-MM-DD",
+    "issue_number": número de edición,
+    "location": "ciudad, país"
+  }},
+  "content": [
+    {{
+      "headline": "título del artículo o sección",
+      "section": "sección (ej: 'Artículo principal', 'Anuncios', etc.)",
+      "type": "artículo o anuncio",
+      "author": "autor (si se menciona, sino cadena vacía)",
+      "text_excerpt": "extracto o resumen del texto"
+    }},
+    ...
+  ]
+}}
+
+IMPORTANTE:
+- Extrae TODOS los artículos, secciones y anuncios que encuentres
+- Mantén la ortografía original del texto
+- Si hay información que no se puede determinar, usa valores vacíos o null
+- Sé exhaustivo, no te pierdas ningún contenido
+
+TEXTO A ANALIZAR:
+{text_content}
+
+Responde SOLO con el JSON, sin explicaciones adicionales."""
+
+    message = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=8000,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+    )
+
+    response_text = message.content[0].text.strip()
+
+    # Intentar extraer JSON si viene con markdown
+    if response_text.startswith("```json"):
+        response_text = response_text.split("```json")[1].split("```")[0].strip()
+    elif response_text.startswith("```"):
+        response_text = response_text.split("```")[1].split("```")[0].strip()
+
+    # Parsear JSON
+    structured_data = json.loads(response_text)
+
+    return structured_data
+
+
 def step2_generate_csv(extracted_text):
     """
-    PASO 2: Generar CSV estructurado desde el texto extraído
+    PASO 2: Generar CSV y JSON estructurado automáticamente desde el texto extraído
+    Usa Claude API para analizar el texto y estructurarlo
     """
     print("\n" + "="*80)
-    print("PASO 2: GENERACIÓN DE CSV ESTRUCTURADO")
+    print("PASO 2: GENERACIÓN AUTOMÁTICA DE JSON Y CSV ESTRUCTURADO")
     print("="*80)
 
-    # Datos estructurados extraídos del texto
-    # En un proceso real más avanzado, esto podría automatizarse con NLP
-    newspaper_data = [
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "El periodismo departamental",
-            "section": "Artículo principal",
-            "type": "artículo",
-            "author": "F. A. Herrera",
-            "text_excerpt": "En ninguna otra sección de la República, excepción hecha del Lima, se ha cultivado más la afición al periodismo, que en la nuestra. Creemos no exagerar ni darnos de excesivamente vanidosos al proclamar esta verdad sobre este particular, que no somos los primeros en declarar..."
-        },
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "Periódicos históricos de Chiclayo",
-            "section": "Artículo principal",
-            "type": "artículo",
-            "author": "F. A. Herrera",
-            "text_excerpt": "Menciona periódicos como 'El Ferrocarril', 'A cierta', 'El Pueblo', 'El Siglo XX', 'La Prensa Libre', 'El Tiempo', 'La Voz del Pueblo', 'La Labra', 'El Zurriaga' y otros que guiaron la opinión pública en Chiclayo."
-        },
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "Periodismo en Monsefú",
-            "section": "Artículo principal",
-            "type": "artículo",
-            "author": "F. A. Herrera",
-            "text_excerpt": "En Monsefú se han editado 'El Progreso' (fundado por el señor Carmona), 'El Centinela', 'La Alianza', 'El Mensajero', 'El Independiente', 'El Heraldo', 'El Lábaro', 'El Pensamiento', 'La Voz del Pueblo', 'La Labor', 'La Juventud' y 'El Liberal'."
-        },
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "Periódicos de Ferreñafe",
-            "section": "Artículo principal",
-            "type": "artículo",
-            "author": "F. A. Herrera",
-            "text_excerpt": "Entre los pueblos de la vecina Provincia solo Ferreñafe ha tenido prensa departamental con su 'Damián' fundado y dirigido por el señor Nicanor M. Carmona..."
-        },
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "Primer periódico en Chiclayo",
-            "section": "Artículo principal",
-            "type": "artículo",
-            "author": "F. A. Herrera",
-            "text_excerpt": "En Chiclayo, el primer periódico que se publicó fue 'El Chiclayano', por el señor José Manuel Soto, apareciendo posteriormente 'El Comercial', 'El Continente', 'El Progreso', 'El Norte', 'El Republicano', 'La Verdad', 'El Comercio', 'La Provincia'..."
-        },
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "Reflexión sobre el periodismo departamental",
-            "section": "Artículo principal",
-            "type": "artículo",
-            "author": "F. A. Herrera",
-            "text_excerpt": "La vida actual del periodismo es de esfuerzos y de constante lucha. Un periódico no se sostiene si no impone sacrificios de todo género, especialmente económicos, al fin se tendrá que imponer la publicidad para venir de los pueblos con respeto a la sociedad."
-        },
-        {
-            "date": "1916-08-05",
-            "issue_number": 1609,
-            "headline": "Rómulo Menchola - Vendedor y Cobrador",
-            "section": "Anuncios",
-            "type": "anuncio",
-            "author": "",
-            "text_excerpt": "RÓMULO MENCHOLA - VENDEDOR Y COBRADOR de las afamadas máquinas Singer Sewing Machine"
-        }
-    ]
+    print("\n🤖 Analizando texto con Claude para estructurar datos automáticamente...")
+
+    # Usar Claude para estructurar el texto automáticamente
+    structured_data = structure_text_with_claude(extracted_text)
+
+    # Guardar JSON completo
+    with open(JSON_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+        json.dump(structured_data, f, ensure_ascii=False, indent=2)
+
+    print(f"\n✅ JSON estructurado guardado en: {JSON_OUTPUT_PATH}")
+
+    # Extraer metadata
+    metadata = structured_data.get('metadata', {})
+    date = metadata.get('date', '')
+    issue_number = metadata.get('issue_number', 0)
+
+    # Convertir content a DataFrame para CSV
+    content_items = structured_data.get('content', [])
+
+    # Agregar metadata a cada item
+    for item in content_items:
+        item['date'] = date
+        item['issue_number'] = issue_number
 
     # Crear DataFrame
-    df = pd.DataFrame(newspaper_data)
+    df = pd.DataFrame(content_items)
+
+    # Reordenar columnas
+    columns_order = ['date', 'issue_number', 'headline', 'section', 'type', 'author', 'text_excerpt']
+    # Solo usar columnas que existan
+    columns_order = [col for col in columns_order if col in df.columns]
+    df = df[columns_order]
 
     # Guardar como CSV
     df.to_csv(CSV_OUTPUT_PATH, index=False, encoding='utf-8')
 
     print(f"✅ CSV generado con {len(df)} registros")
     print(f"📁 Guardado en: {CSV_OUTPUT_PATH}")
+
+    # Estadísticas
     print(f"\n📊 Estadísticas:")
-    print(f"   - Artículos: {len(df[df['type'] == 'artículo'])}")
-    print(f"   - Anuncios: {len(df[df['type'] == 'anuncio'])}")
+    if 'type' in df.columns:
+        type_counts = df['type'].value_counts()
+        for tipo, count in type_counts.items():
+            print(f"   - {tipo.capitalize()}: {count}")
+    print(f"   - Total de elementos: {len(df)}")
 
     return df
 
@@ -367,7 +504,7 @@ def main():
     print("="*80)
     print("\nFlujo de procesamiento:")
     print("  1️⃣  Extraer texto completo → archivo .txt")
-    print("  2️⃣  Estructurar datos → archivo .csv")
+    print("  2️⃣  Analizar texto con IA → archivos .json y .csv (AUTOMÁTICO)")
     print("  3️⃣  Generar visualizaciones → imágenes .png")
     print("="*80)
 
@@ -386,8 +523,9 @@ def main():
     print("="*80)
     print(f"\n📁 Archivos generados:")
     print(f"   1. Texto completo:     {TEXT_OUTPUT_PATH}")
-    print(f"   2. CSV estructurado:   {CSV_OUTPUT_PATH}")
-    print(f"   3. Visualizaciones:    {VIZ_DIR}visualization_*.png")
+    print(f"   2. JSON estructurado:  {JSON_OUTPUT_PATH}")
+    print(f"   3. CSV estructurado:   {CSV_OUTPUT_PATH}")
+    print(f"   4. Visualizaciones:    {VIZ_DIR}visualization_*.png")
     print("\n" + "="*80)
 
 

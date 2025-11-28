@@ -28,16 +28,17 @@ Este proyecto utiliza la **API de Claude (visión/OCR)** de Anthropic para digit
 el-martillo-ocr/
 ├── README.md                          # Este archivo
 ├── INFORME.md                         # Informe detallado del análisis
-├── process_ocr.py                     # Script principal de procesamiento (NUEVO)
+├── process_ocr.py                     # Script principal de procesamiento
 ├── el_martillo_ocr.ipynb             # Notebook Jupyter con análisis OCR
 ├── generate_visualizations.py         # Script para generar gráficos
 ├── requirements.txt                   # Dependencias de Python
 ├── data/
 │   └── el_martillo/
-│       ├── page_01.png               # Imagen de la página escaneada (colocar aquí)
-│       ├── page_info.txt             # Información de la página
-│       ├── texto_completo_extraido.txt  # Texto completo del OCR (NUEVO)
-│       ├── el_martillo_1609_structured.csv  # Datos estructurados
+│       ├── page_01.png                      # Imagen de la página escaneada (colocar aquí)
+│       ├── page_info.txt                    # Información de la página
+│       ├── texto_completo_extraido.txt      # Texto completo extraído (OCR)
+│       ├── el_martillo_1609_structured.json # Datos estructurados en JSON (NUEVO)
+│       ├── el_martillo_1609_structured.csv  # Datos estructurados en CSV
 │       ├── visualization_content_distribution.png
 │       ├── visualization_text_lengths.png
 │       └── visualization_statistics.png
@@ -84,9 +85,9 @@ el-martillo-ocr/
    python3 process_ocr.py
    ```
 
-   Este script ejecuta el flujo completo:
-   - 1️⃣ Extrae texto completo → `texto_completo_extraido.txt`
-   - 2️⃣ Genera CSV estructurado → `el_martillo_1609_structured.csv`
+   Este script ejecuta el flujo completo **automático**:
+   - 1️⃣ Extrae texto con OCR → `texto_completo_extraido.txt`
+   - 2️⃣ Estructura datos con IA → `el_martillo_1609_structured.json` + `.csv`
    - 3️⃣ Crea visualizaciones → archivos `.png`
 
    **Opción B - Notebook Jupyter (interactivo):**
@@ -98,33 +99,45 @@ el-martillo-ocr/
 
 ## 🔄 Flujo de Procesamiento
 
-El script `process_ocr.py` sigue un flujo ordenado en 3 pasos:
+El script `process_ocr.py` sigue un flujo **completamente automático** en 3 pasos:
 
-### 📝 Paso 1: Extracción de Texto
-- Lee la imagen del periódico con Claude Vision API
-- Extrae **todo el texto** de forma completa
+### 📝 Paso 1: Extracción de Texto (OCR)
+- Lee la imagen del periódico con **Claude Vision API**
+- Extrae **todo el texto** de forma completa y precisa
 - Guarda el resultado en: `data/el_martillo/texto_completo_extraido.txt`
-- Formato: Texto plano con encabezados y estructura
+- Formato: Texto plano con encabezados y estructura original
 
-### 📊 Paso 2: Estructuración de Datos
-- Analiza el texto extraído
-- Identifica artículos, secciones, autores y anuncios
-- Genera un CSV estructurado con campos normalizados
-- Guarda en: `data/el_martillo/el_martillo_1609_structured.csv`
+### 🤖 Paso 2: Estructuración Automática con IA
+**NUEVO: Proceso 100% automático usando Claude API**
+
+- ✨ Analiza el texto extraído con **Claude AI**
+- 🧠 Identifica automáticamente:
+  - Artículos y sus títulos
+  - Secciones del periódico
+  - Autores mencionados
+  - Anuncios publicitarios
+  - Metadata (fecha, edición, ubicación)
+- 📦 Genera **dos formatos de salida**:
+  - **JSON estructurado**: `data/el_martillo/el_martillo_1609_structured.json`
+  - **CSV normalizado**: `data/el_martillo/el_martillo_1609_structured.csv`
+
+**Modo Fallback**: Si no hay API key configurada, usa análisis de patrones básicos (regex) para generar la estructura automáticamente.
 
 ### 📈 Paso 3: Visualizaciones
 - Lee el CSV generado
 - Crea 3 gráficos de análisis:
-  - Distribución de contenido (barras + circular)
-  - Longitud de textos por sección
-  - Estadísticas generales
+  - 📊 Distribución de contenido (barras + circular)
+  - 📏 Longitud de textos por sección
+  - 📈 Estadísticas generales
 - Guarda en: `data/el_martillo/visualization_*.png`
 
 **Ventajas de este flujo:**
-- ✅ Primero texto completo, luego análisis
+- ✅ **100% automático** - Sin intervención manual
+- ✅ Primero texto completo, luego análisis estructurado
 - ✅ Separación clara de responsabilidades
-- ✅ Fácil de automatizar y repetir
-- ✅ Permite verificar cada paso
+- ✅ Genera JSON y CSV para máxima flexibilidad
+- ✅ Fácil de automatizar para múltiples páginas
+- ✅ Permite verificar cada paso del proceso
 
 ---
 

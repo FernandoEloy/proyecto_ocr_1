@@ -28,6 +28,7 @@ Este proyecto utiliza la **API de Claude (visión/OCR)** de Anthropic para digit
 el-martillo-ocr/
 ├── README.md                          # Este archivo
 ├── INFORME.md                         # Informe detallado del análisis
+├── process_ocr.py                     # Script principal de procesamiento (NUEVO)
 ├── el_martillo_ocr.ipynb             # Notebook Jupyter con análisis OCR
 ├── generate_visualizations.py         # Script para generar gráficos
 ├── requirements.txt                   # Dependencias de Python
@@ -35,6 +36,7 @@ el-martillo-ocr/
 │   └── el_martillo/
 │       ├── page_01.png               # Imagen de la página escaneada (colocar aquí)
 │       ├── page_info.txt             # Información de la página
+│       ├── texto_completo_extraido.txt  # Texto completo del OCR (NUEVO)
 │       ├── el_martillo_1609_structured.csv  # Datos estructurados
 │       ├── visualization_content_distribution.png
 │       ├── visualization_text_lengths.png
@@ -70,14 +72,59 @@ el-martillo-ocr/
    export ANTHROPIC_API_KEY='tu-api-key-aquí'
    ```
 
-4. **Colocar la imagen del periódico**:
+4. **Colocar la imagen del periódico** (opcional):
    - Descarga la página escaneada de [Fuentes Históricas del Perú](https://fuenteshistoricasdelperu.com/2020/12/06/el-martillo-chiclayo-1903-1919/)
    - Guárdala como: `data/el_martillo/page_01.png`
+   - Si no tienes la imagen, el script usará texto de ejemplo
 
-5. **Ejecutar el análisis**:
+5. **Ejecutar el análisis** (dos opciones):
+
+   **Opción A - Script automatizado (RECOMENDADO):**
+   ```bash
+   python3 process_ocr.py
+   ```
+
+   Este script ejecuta el flujo completo:
+   - 1️⃣ Extrae texto completo → `texto_completo_extraido.txt`
+   - 2️⃣ Genera CSV estructurado → `el_martillo_1609_structured.csv`
+   - 3️⃣ Crea visualizaciones → archivos `.png`
+
+   **Opción B - Notebook Jupyter (interactivo):**
    ```bash
    jupyter notebook el_martillo_ocr.ipynb
    ```
+
+---
+
+## 🔄 Flujo de Procesamiento
+
+El script `process_ocr.py` sigue un flujo ordenado en 3 pasos:
+
+### 📝 Paso 1: Extracción de Texto
+- Lee la imagen del periódico con Claude Vision API
+- Extrae **todo el texto** de forma completa
+- Guarda el resultado en: `data/el_martillo/texto_completo_extraido.txt`
+- Formato: Texto plano con encabezados y estructura
+
+### 📊 Paso 2: Estructuración de Datos
+- Analiza el texto extraído
+- Identifica artículos, secciones, autores y anuncios
+- Genera un CSV estructurado con campos normalizados
+- Guarda en: `data/el_martillo/el_martillo_1609_structured.csv`
+
+### 📈 Paso 3: Visualizaciones
+- Lee el CSV generado
+- Crea 3 gráficos de análisis:
+  - Distribución de contenido (barras + circular)
+  - Longitud de textos por sección
+  - Estadísticas generales
+- Guarda en: `data/el_martillo/visualization_*.png`
+
+**Ventajas de este flujo:**
+- ✅ Primero texto completo, luego análisis
+- ✅ Separación clara de responsabilidades
+- ✅ Fácil de automatizar y repetir
+- ✅ Permite verificar cada paso
 
 ---
 
@@ -235,6 +282,13 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 ---
 
 ## 📝 Notas de Versión
+
+### v1.1.0 (Noviembre 2024) - ACTUAL
+- ✅ **NUEVO**: Script `process_ocr.py` con flujo completo automatizado
+- ✅ **NUEVO**: Generación de `texto_completo_extraido.txt` como primer paso
+- ✅ Flujo mejorado: texto → CSV → visualizaciones
+- ✅ Mejor separación de responsabilidades
+- ✅ Documentación actualizada con instrucciones claras
 
 ### v1.0.0 (Noviembre 2024)
 - ✅ Análisis inicial de la edición 1609 (5 de agosto de 1916)
